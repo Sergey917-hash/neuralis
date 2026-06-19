@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEURALIS — Web3 AI Co-pilot</title>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --bg2: #0f0f1a;
+    --bg3: #13131f;
+    --card: #16162a;
+    --border: #2a2a45;
+    --purple: #7c3aed;
+    --purple2: #9f5ef8;
+    --purple3: #c4b5fd;
+    --green: #22c55e;
+    --red: #ef4444;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --accent: #a855f7;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:'Courier New',monospace; min-height:100vh; }
+
+  /* TICKER */
+  .ticker { background:#000; border-bottom:1px solid var(--border); padding:8px 16px; display:flex; align-items:center; gap:24px; font-size:13px; flex-wrap:wrap; }
+  .ticker-item { display:flex; align-items:center; gap:6px; }
+  .ticker-item span:first-child { color:var(--muted); font-size:11px; }
+  .ticker-price { font-weight:700; color:var(--text); }
+  .ticker-change.up { color:var(--green); }
+  .ticker-change.down { color:var(--red); }
+  .live-dot { width:6px; height:6px; background:var(--green); border-radius:50%; animation:pulse 1s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  /* NAV */
+  nav { background:rgba(10,10,15,0.95); backdrop-filter:blur(10px); border-bottom:1px solid var(--border); padding:12px 24px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:100; }
+  .logo { display:flex; align-items:center; gap:8px; font-size:18px; font-weight:700; color:var(--purple2); letter-spacing:2px; }
+  .logo-dot { width:8px; height:8px; background:var(--purple); border-radius:50%; }
+  .nav-links { display:flex; gap:4px; }
+  .nav-link { padding:6px 14px; border-radius:6px; cursor:pointer; font-size:13px; color:var(--muted); transition:all 0.2s; background:none; border:none; font-family:inherit; }
+  .nav-link:hover, .nav-link.active { color:var(--text); background:var(--card); }
+  .connect-btn { background:var(--purple); color:#fff; border:none; padding:8px 16px; border-radius:8px; cursor:pointer; font-size:13px; font-family:inherit; transition:all 0.2s; }
+  .connect-btn:hover { background:var(--purple2); }
+  .hamburger { display:none; background:none; border:none; color:var(--text); font-size:24px; cursor:pointer; }
+
+  /* PAGES */
+  .page { display:none; padding:24px; max-width:1200px; margin:0 auto; }
+  .page.active { display:block; }
+
+  /* DASHBOARD */
+  .stats-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:24px; }
+  @media(max-width:768px) { .stats-grid { grid-template-columns:repeat(2,1fr); } }
+  @media(max-width:480px) { .stats-grid { grid-template-columns:1fr; } }
+  .stat-card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:20px; }
+  .stat-label { font-size:12px; color:var(--muted); margin-bottom:8px; }
+  .stat-value { font-size:22px; font-weight:700; color:var(--text); }
+  .stat-change { font-size:12px; margin-top:4px; }
+  .stat-change.up { color:var(--green); }
+  .stat-change.down { color:var(--red); }
+
+  .chart-signals { display:grid; grid-template-columns:2fr 1fr; gap:16px; margin-bottom:24px; }
+  @media(max-width:768px) { .chart-signals { grid-template-columns:1fr; } }
+
+  .chart-card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:20px; }
+  .chart-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; flex-wrap:wrap; gap:8px; }
+  .chart-title { font-size:14px; font-weight:700; }
+  .chart-price { font-size:28px; font-weight:700; color:var(--text); }
+  .chart-timeframes { display:flex; gap:4px; }
+  .tf-btn { padding:4px 10px; border-radius:4px; border:1px solid var(--border); background:none; color:var(--muted); font-size:11px; cursor:pointer; font-family:inherit; }
+  .tf-btn.active { background:var(--purple); color:#fff; border-color:var(--purple); }
+  canvas#mainChart { width:100%!important; height:200px!important; }
+
+  .signals-card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:20px; }
+  .signals-title { font-size:14px; font-weight:700; margin-bottom:16px; display:flex; align-items:center; justify-content:space-between; }
+  .live-badge { background:rgba(34,197,94,0.1); color:var(--green); padding:2px 8px; border-radius:4px; font-size:11px; }
+  .signal-item { padding:12px 0; border-bottom:1px solid var(--border); }
+  .signal-item:last-child { border-bottom:none; }
+  .signal-coin { font-size:11px; color:var(--muted); margin-bottom:4px; }
+  .signal-title { font-size:13px; font-weight:600; margin-bottom:4px; }
+  .signal-desc { font-size:11px; color:var(--muted); line-height:1.4; }
+  .signal-badge { display:inline-block; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:700; margin-bottom:6px; }
+  .signal-badge.bullish { background:rgba(34,197,94,0.1); color:var(--green); }
+  .signal-badge.neutral { background:rgba(234,179,8,0.1); color:#eab308; }
+  .signal-badge.caution { background:rgba(239,68,68,0.1); color:var(--red); }
+
+  .markets-card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:20px; }
+  .markets-title { font-size:14px; font-weight:700; margin-bottom:16px; display:flex; justify-content:space-between; }
+  .markets-table { width:100%; border-collapse:collapse; }
+  .markets-table th { font-size:11px; color:var(--muted); text-align:left; padding:8px 0; border-bottom:1px solid var(--border); }
+  .markets-table td { padding:12px 0; border-bottom:1px solid rgba(42,42,69,0.5); font-size:13px; }
+  .markets-table tr:last-child td { border-bottom:none; }
+  .asset-name { font-weight:600; }
+  .asset-ticker { font-size:11px; color:var(--muted); }
+  .price-up { color:var(--green); }
+  .price-down { color:var(--red); }
+
+  /* AI CHAT */
+  .chat-container { background:var(--card); border:1px solid var(--border); border-radius:12px; height:70vh; display:flex; flex-direction:column; }
+  .chat-header { padding:16px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:10px; }
+  .chat-avatar { width:36px; height:36px; background:var(--purple); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:16px; }
+  .chat-name { font-weight:700; font-size:14px; }
+  .chat-sub { font-size:11px; color:var(--muted); }
+  .chat-messages { flex:1; overflow-y:auto; padding:20px; display:flex; flex-direction:column; gap:16px; }
+  .chat-empty { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; gap:16px; }
+  .chat-empty-icon { font-size:48px; }
+  .chat-empty-title { font-size:18px; font-weight:700; }
+  .chat-empty-sub { font-size:13px; color:var(--muted); text-align:center; }
+  .chat-suggestions { display:grid; grid-template-columns:1fr 1fr; gap:8px; width:100%; max-width:500px; }
+  @media(max-width:480px) { .chat-suggestions { grid-template-columns:1fr; } }
+  .chat-suggestion { background:var(--bg3); border:1px solid var(--border); border-radius:8px; padding:10px 14px; font-size:12px; cursor:pointer; text-align:left; color:var(--text); font-family:inherit; transition:all 0.2s; }
+  .chat-suggestion:hover { border-color:var(--purple); background:rgba(124,58,237,0.1); }
+  .chat-input-area { padding:16px 20px; border-top:1px solid var(--border); display:flex; gap:10px; }
+  .chat-input { flex:1; background:var(--bg3); border:1px solid var(--border); border-radius:8px; padding:10px 16px; color:var(--text); font-family:inherit; font-size:13px; resize:none; outline:none; }
+  .chat-input:focus { border-color:var(--purple); }
+  .chat-send { background:var(--purple); border:none; border-radius:8px; width:40px; height:40px; cursor:pointer; font-size:18px; display:flex; align-items:center; justify-content:center; }
+  .message { display:flex; gap:10px; }
+  .message.user { flex-direction:row-reverse; }
+  .msg-avatar { width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; }
+  .msg-avatar.ai { background:var(--purple); }
+  .msg-avatar.user { background:var(--bg3); border:1px solid var(--border); }
+  .msg-bubble { background:var(--bg3); border:1px solid var(--border); border-radius:12px; padding:12px 16px; font-size:13px; line-height:1.6; max-width:80%; }
+  .message.user .msg-bubble { background:rgba(124,58,237,0.2); border-color:var(--purple); }
+  .typing { display:flex; gap:4px; align-items:center; padding:4px 0; }
+  .typing span { width:6px; height:6px; background:var(--muted); border-radius:50%; animation:typing 1.2s infinite; }
+  .typing span:nth-child(2) { animation-delay:0.2s; }
+  .typing span:nth-child(3) { animation-delay:0.4s; }
+  @keyframes typing { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-6px)} }
+
+  /* PRICING */
+  .pricing-header { text-align:center; padding:40px 0 32px; }
+  .pricing-title { font-size:36px; font-weight:700; margin-bottom:12px; }
+  .pricing-sub { color:var(--muted); font-size:14px; }
+  .pricing-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:20px; max-width:900px; margin:0 auto; }
+  @media(max-width:768px) { .pricing-grid { grid-template-columns:1fr; max-width:400px; } }
+  .price-card { background:var(--card); border:1px solid var(--border); border-radius:16px; padding:28px; position:relative; }
+  .price-card.popular { border-color:var(--purple); }
+  .popular-badge { position:absolute; top:-12px; left:50%; transform:translateX(-50%); background:var(--purple); color:#fff; padding:4px 16px; border-radius:20px; font-size:12px; white-space:nowrap; }
+  .price-plan { font-size:12px; color:var(--muted); letter-spacing:1px; text-transform:uppercase; margin-bottom:8px; }
+  .price-amount { font-size:40px; font-weight:700; margin-bottom:4px; }
+  .price-amount span { font-size:16px; color:var(--muted); }
+  .price-desc { font-size:12px; color:var(--muted); margin-bottom:24px; }
+  .price-btn { width:100%; padding:12px; border-radius:8px; font-size:14px; font-family:inherit; cursor:pointer; border:1px solid var(--border); background:var(--bg3); color:var(--text); margin-bottom:24px; transition:all 0.2s; }
+  .price-btn.primary { background:var(--purple); border-color:var(--purple); color:#fff; }
+  .price-btn:hover { opacity:0.85; }
+  .price-features { display:flex; flex-direction:column; gap:10px; }
+  .price-feature { display:flex; align-items:center; gap:8px; font-size:13px; }
+  .price-feature::before { content:'✓'; color:var(--green); font-weight:700; }
+
+  /* FOUNDER SUPPORT */
+  .support-header { text-align:center; padding:40px 0 32px; }
+  .support-title { font-size:36px; font-weight:700; margin-bottom:12px; }
+  .support-sub { color:var(--muted); font-size:14px; max-width:500px; margin:0 auto; }
+  .support-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; max-width:800px; margin:0 auto; }
+  @media(max-width:600px) { .support-grid { grid-template-columns:1fr; } }
+  .support-card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:24px; }
+  .support-card-title { font-size:16px; font-weight:700; margin-bottom:8px; display:flex; align-items:center; gap:8px; }
+  .support-card-sub { font-size:13px; color:var(--muted); margin-bottom:20px; line-height:1.5; }
+  .social-links { display:flex; flex-direction:column; gap:10px; }
+  .social-link { display:flex; align-items:center; justify-content:space-between; background:var(--bg3); border:1px solid var(--border); border-radius:8px; padding:12px 16px; text-decoration:none; color:var(--text); transition:all 0.2s; }
+  .social-link:hover { border-color:var(--purple); background:rgba(124,58,237,0.1); }
+  .social-link-left { display:flex; align-items:center; gap:10px; font-size:13px; }
+  .social-link-action { font-size:12px; color:var(--purple2); }
+  .contact-form { display:flex; flex-direction:column; gap:12px; }
+  .contact-input { background:var(--bg3); border:1px solid var(--border); border-radius:8px; padding:10px 14px; color:var(--text); font-family:inherit; font-size:13px; outline:none; }
+  .contact-input:focus { border-color:var(--purple); }
+  textarea.contact-input { resize:vertical; min-height:80px; }
+  .contact-btn { background:var(--purple); color:#fff; border:none; border-radius:8px; padding:12px; font-size:14px; font-family:inherit; cursor:pointer; }
+
+  /* ADMIN */
+  .admin-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:24px; }
+  @media(max-width:768px) { .admin-stats { grid-template-columns:repeat(2,1fr); } }
+  @media(max-width:480px) { .admin-stats { grid-template-columns:1fr 1fr; } }
+  .admin-card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:20px; }
+  .admin-card-label { font-size:12px; color:var(--muted); margin-bottom:8px; }
+  .admin-card-value { font-size:28px; font-weight:700; }
+  .users-table-card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:20px; }
+  .users-table-title { font-size:14px; font-weight:700; margin-bottom:16px; }
+  .users-table { width:100%; border-collapse:collapse; }
+  .users-table th { font-size:11px; color:var(--muted); text-align:left; padding:8px 0; border-bottom:1px solid var(--border); }
+  .users-table td { padding:12px 0; border-bottom:1px solid rgba(42,42,69,0.5); font-size:13px; }
+  .users-table tr:last-child td { border-bottom:none; }
+  .plan-badge { display:inline-block; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:700; }
+  .plan-badge.free { background:rgba(100,116,139,0.2); color:var(--muted); }
+  .plan-badge.pro { background:rgba(124,58,237,0.2); color:var(--purple2); }
+  .plan-badge.whale { background:rgba(34,197,94,0.1); color:var(--green); }
+  .empty-state { text-align:center; padding:40px; color:var(--muted); font-size:14px; }
+
+  /* AUTH MODAL */
+  .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:1000; display:none; align-items:center; justify-content:center; padding:16px; }
+  .modal-overlay.open { display:flex; }
+  .modal { background:var(--bg2); border:1px solid var(--border); border-radius:16px; padding:32px; width:100%; max-width:400px; }
+  .modal-title { font-size:20px; font-weight:700; margin-bottom:8px; }
+  .modal-sub { font-size:13px; color:var(--muted); margin-bottom:24px; }
+  .modal-form { display:flex; flex-direction:column; gap:12px; }
+  .modal-input { background:var(--bg3); border:1px solid var(--border); border-radius:8px; padding:12px 16px; color:var(--text); font-family:inherit; font-size:14px; outline:none; }
+  .modal-input:focus { border-color:var(--purple); }
+  .modal-btn { background:var(--purple); color:#fff; border:none; border-radius:8px; padding:12px; font-size:14px; font-family:inherit; cursor:pointer; }
+  .modal-switch { text-align:center; font-size:13px; color:var(--muted); margin-top:12px; }
+  .modal-switch a { color:var(--purple2); cursor:pointer; text-decoration:none; }
+  .modal-close { float:right; background:none; border:none; color:var(--muted); font-size:20px; cursor:pointer; margin-top:-8px; }
+
+  /* MOBILE NAV */
+  @media(max-width:640px) {
+    .nav-links { display:none; }
+    .hamburger { display:block; }
+    .mobile-menu { display:none; position:fixed; inset:0; background:var(--bg); z-index:200; flex-direction:column; align-items:center; justify-content:center; gap:16px; }
+    .mobile-menu.open { display:flex; }
+    .mobile-menu .nav-link { font-size:20px; padding:12px 32px; }
+    .mobile-close { position:absolute; top:20px; right:20px; background:none; border:none; color:var(--text); font-size:28px; cursor:pointer; }
+    .pricing-title { font-size:24px; }
+    .support-title { font-size:24px; }
+    .chart-price { font-size:20px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- TICKER -->
+<div class="ticker">
+  <div class="live-dot"></div>
+  <div class="ticker-item">
+    <span>BTC</span>
+    <span class="ticker-price" id="t-btc">$--</span>
+    <span class="ticker-change" id="t-btc-c">--</span>
+  </div>
+  <div class="ticker-item">
+    <span>ETH</span>
+    <span class="ticker-price" id="t-eth">$--</span>
+    <span class="ticker-change" id="t-eth-c">--</span>
+  </div>
+  <div class="ticker-item">
+    <span>SOL</span>
+    <span class="ticker-price" id="t-sol">$--</span>
+    <span class="ticker-change" id="t-sol-c">--</span>
+  </div>
+  <div class="ticker-item">
+    <span>BNB</span>
+    <span class="ticker-price" id="t-bnb">$--</span>
+    <span class="ticker-change" id="t-bnb-c">--</span>
+  </div>
+</div>
+
+<!-- NAV -->
+<nav>
+  <div class="logo"><div class="logo-dot"></div>NEURALIS</div>
+  <div class="nav-links">
+    <button class="nav-link active" onclick="showPage('dashboard',this)">Dashboard</button>
+    <button class="nav-link" onclick="showPage('chat',this)">AI Chat</button>
+    <button class="nav-link" onclick="showPage('pricing',this)">Pricing</button>
+    <button class="nav-link" onclick="showPage('support',this)">Founder Support</button>
+    <button class="nav-link" onclick="showPage('admin',this)">Admin</button>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center;">
+    <button class="connect-btn" onclick="openAuth()">🔗 Connect Wallet</button>
+    <button class="hamburger" onclick="openMobileMenu()">☰</button>
+  </div>
+</nav>
+
+<!-- MOBILE MENU -->
+<div class="mobile-menu" id="mobileMenu">
+  <button class="mobile-close" onclick="closeMobileMenu()">✕</button>
+  <button class="nav-link" onclick="showPage('dashboard');closeMobileMenu()">Dashboard</button>
+  <button class="nav-link" onclick="showPage('chat');closeMobileMenu()">AI Chat</button>
+  <button class="nav-link" onclick="showPage('pricing');closeMobileMenu()">Pricing</button>
+  <button class="nav-link" onclick="showPage('support');closeMobileMenu()">Founder Support</button>
+  <button class="nav-link" onclick="showPage('admin');closeMobileMenu()">Admin</button>
+</div>
+
+<!-- DASHBOARD -->
+<div class="page active" id="page-dashboard">
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-label">Total Market Cap</div>
+      <div class="stat-value" id="mktcap">$--</div>
+      <div class="stat-change up">+2.8% 24h</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">24h Volume</div>
+      <div class="stat-value" id="vol24">$--</div>
+      <div class="stat-change up">+11.4% 24h</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">BTC Dominance</div>
+      <div class="stat-value" id="btcdom">--%</div>
+      <div class="stat-change down">-0.3% 24h</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Fear & Greed</div>
+      <div class="stat-value" id="fng">--</div>
+      <div class="stat-change up" id="fng-label">--</div>
+    </div>
+  </div>
+
+  <div class="chart-signals">
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">Bitcoin · BTC/USD</div>
+          <div class="chart-price" id="btc-price-main">$--</div>
+        </div>
+        <div class="chart-timeframes">
+          <button class="tf-btn">1H</button>
+          <button class="tf-btn active">24H</button>
+          <button class="tf-btn">7D</button>
+          <button class="tf-btn">30D</button>
+        </div>
+      </div>
+      <canvas id="mainChart"></canvas>
+    </div>
+    <div class="signals-card">
+      <div class="signals-title">⚡ AI Signals <span class="live-badge">Live</span></div>
+      <div class="signal-item">
+        <div class="signal-coin">ETH</div>
+        <div class="signal-badge bullish">Bullish</div>
+        <div class="signal-title">Accumulation detected</div>
+        <div class="signal-desc">Whale wallets added 142k ETH over 48h. Net exchange outflow rising.</div>
+      </div>
+      <div class="signal-item">
+        <div class="signal-coin">SOL</div>
+        <div class="signal-badge neutral">Neutral</div>
+        <div class="signal-title">Funding rate cooling</div>
+        <div class="signal-desc">Perp funding normalized after spike. Reduced liquidation risk near support.</div>
+      </div>
+      <div class="signal-item">
+        <div class="signal-coin">BTC</div>
+        <div class="signal-badge caution">Caution</div>
+        <div class="signal-title">Resistance cluster ahead</div>
+        <div class="signal-desc">Heavy supply zone from prior distribution. Watch for rejection.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="markets-card">
+    <div class="markets-title">
+      <span>Markets</span>
+      <span style="font-size:12px;color:var(--muted);">Real-time · 6 assets</span>
+    </div>
+    <div style="overflow-x:auto;">
+    <table class="markets-table">
+      <thead>
+        <tr>
+          <th>Asset</th>
+          <th>Price</th>
+          <th>24H</th>
+          <th>Volume</th>
+        </tr>
+      </thead>
+      <tbody id="marketsBody"></tbody>
+    </table>
+    </div>
+  </div>
+</div>
+
+<!-- AI CHAT -->
+<div class="page" id="page-chat">
+  <div class="chat-container">
+    <div class="chat-header">
+      <div class="chat-avatar">🤖</div>
+      <div>
+        <div class="chat-name">NEURALIS Analyst</div>
+        <div class="chat-sub">Web3 market intelligence · powered by Groq AI</div>
+      </div>
+    </div>
+    <div class="chat-messages" id="chatMessages">
+      <div class="chat-empty" id="chatEmpty">
+        <div class="chat-empty-icon">🧠</div>
+        <div class="chat-empty-title">Ask the NEURALIS analyst</div>
+        <div class="chat-empty-sub">Get on-chain analysis, market structure breakdowns, and token research.</div>
+        <div class="chat-suggestions">
+          <button class="chat-suggestion" onclick="sendSuggestion(this)">Analyze the current BTC market structure</button>
+          <button class="chat-suggestion" onclick="sendSuggestion(this)">What do ETH on-chain flows signal right now?</button>
+          <button class="chat-suggestion" onclick="sendSuggestion(this)">Compare SOL vs AVAX fundamentals</button>
+          <button class="chat-suggestion" onclick="sendSuggestion(this)">Explain the current funding rate environment</button>
+        </div>
+      </div>
+    </div>
+    <div class="chat-input-area">
+      <textarea class="chat-input" id="chatInput" rows="1" placeholder="Ask about any token, protocol, or market trend..." onkeydown="handleKey(event)"></textarea>
+      <button class="chat-send" onclick="sendMessage()">➤</button>
+    </div>
+  </div>
+</div>
+
+<!-- PRICING -->
+<div class="page" id="page-pricing">
+  <div class="pricing-header">
+    <div class="pricing-title">Trade with an AI edge</div>
+    <div class="pricing-sub">Start free, scale as you grow. Every plan includes the live NEURALIS terminal.</div>
+  </div>
+  <div class="pricing-grid">
+    <div class="price-card">
+      <div class="price-plan">FREE</div>
+      <div class="price-amount">$0<span>/month</span></div>
+      <div class="price-desc">For exploring the terminal</div>
+      <button class="price-btn" onclick="openAuth()">Start Free</button>
+      <div class="price-features">
+        <div class="price-feature">Live BTC, ETH, SOL tickers</div>
+        <div class="price-feature">Basic market dashboard</div>
+        <div class="price-feature">10 AI analyst messages/day</div>
+        <div class="price-feature">Standard data refresh</div>
+        <div class="price-feature">Community support</div>
+      </div>
+    </div>
+    <div class="price-card popular">
+      <div class="popular-badge">Most Popular</div>
+      <div class="price-plan">PRO</div>
+      <div class="price-amount">$10<span>/month</span></div>
+      <div class="price-desc">For active traders</div>
+      <button class="price-btn primary">Upgrade to Pro</button>
+      <div class="price-features">
+        <div class="price-feature">Everything in Free</div>
+        <div class="price-feature">Unlimited AI analyst chat</div>
+        <div class="price-feature">Full multi-asset market table</div>
+        <div class="price-feature">On-chain flow signals</div>
+        <div class="price-feature">Real-time alerts & watchlists</div>
+        <div class="price-feature">Priority data feeds</div>
+      </div>
+    </div>
+    <div class="price-card">
+      <div class="price-plan">WHALE 🐋</div>
+      <div class="price-amount">$20<span>/month</span></div>
+      <div class="price-desc">For funds & power users</div>
+      <button class="price-btn">Go Whale</button>
+      <div class="price-features">
+        <div class="price-feature">Everything in Pro</div>
+        <div class="price-feature">Advanced whale wallet tracking</div>
+        <div class="price-feature">Custom AI research reports</div>
+        <div class="price-feature">API access & data exports</div>
+        <div class="price-feature">Multi-wallet portfolio analytics</div>
+        <div class="price-feature">Dedicated founder support</div>
+        <div class="price-feature">Private strategy calls</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FOUNDER SUPPORT -->
+<div class="page" id="page-support">
+  <div class="support-header">
+    <div class="support-title">Back the build</div>
+    <div class="support-sub">NEURALIS is built by a small independent team. Your support keeps the feeds live and the models sharp.</div>
+  </div>
+  <div class="support-grid">
+    <div class="support-card">
+      <div class="support-card-title">💬 Get in touch</div>
+      <div class="support-card-sub">Reach out directly via Twitter or Telegram for support, partnerships, or feedback.</div>
+      <div class="social-links">
+        <a class="social-link" href="https://twitter.com/botgenius_core" target="_blank">
+          <div class="social-link-left">𝕏 &nbsp; Twitter / X</div>
+          <div class="social-link-action">@botgenius_core →</div>
+        </a>
+        <a class="social-link" href="https://t.me/Focusdid" target="_blank">
+          <div class="social-link-left">✈️ &nbsp; Telegram</div>
+          <div class="social-link-action">@Focusdid →</div>
+        </a>
+      </div>
+    </div>
+    <div class="support-card">
+      <div class="support-card-title">📩 Send a message</div>
+      <div class="support-card-sub">Have a question or request? Leave a message and we'll get back to you.</div>
+      <div class="contact-form">
+        <input class="contact-input" type="email" placeholder="your@email.com">
+        <textarea class="contact-input" placeholder="How can we help?"></textarea>
+        <button class="contact-btn">Send message ✈️</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ADMIN -->
+<div class="page" id="page-admin">
+  <div style="margin-bottom:24px;">
+    <div style="font-size:20px;font-weight:700;margin-bottom:4px;">Admin Panel</div>
+    <div style="font-size:13px;color:var(--muted);">Manage users and review analytics</div>
+  </div>
+  <div class="admin-stats">
+    <div class="admin-card">
+      <div class="admin-card-label">Total Users</div>
+      <div class="admin-card-value" id="totalUsers">0</div>
+    </div>
+    <div class="admin-card">
+      <div class="admin-card-label">Active</div>
+      <div class="admin-card-value" id="activeUsers">0</div>
+    </div>
+    <div class="admin-card">
+      <div class="admin-card-label">Pro+</div>
+      <div class="admin-card-value" id="proUsers">0</div>
+    </div>
+    <div class="admin-card">
+      <div class="admin-card-label">Revenue</div>
+      <div class="admin-card-value" id="revenue">$0</div>
+    </div>
+  </div>
+  <div class="users-table-card">
+    <div class="users-table-title">Users</div>
+    <div id="usersContent">
+      <div class="empty-state">No users registered yet.<br>Users will appear here after sign up.</div>
+    </div>
+  </div>
+</div>
+
+<!-- AUTH MODAL -->
+<div class="modal-overlay" id="authModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeAuth()">✕</button>
+    <div class="modal-title" id="authTitle">Sign In</div>
+    <div class="modal-sub" id="authSub">Welcome back to NEURALIS</div>
+    <div class="modal-form">
+      <input class="modal-input" type="email" placeholder="Email" id="authEmail">
+      <input class="modal-input" type="password" placeholder="Password" id="authPassword">
+      <button class="modal-btn" onclick="handleAuth()">Sign In</button>
+    </div>
+    <div class="modal-switch">Don't have an account? <a onclick="toggleAuthMode()">Sign Up</a></div>
+  </div>
+</div>
+
+<script>
+// ---- PRICES ----
+const COINS = ['bitcoin','ethereum','solana','binancecoin','ripple','avalanche-2'];
+const SYMBOLS = ['BTC','ETH','SOL','BNB','XRP','AVAX'];
+let prices = {};
+let chartData = [];
+let authMode = 'signin';
+let users = JSON.parse(localStorage.getItem('neuralis_users')||'[]');
+
+async function fetchPrices(){
+  try {
+    const r = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${COINS.join(',')}&vs_currencies=usd&include_24hr_change=true&include_24hr_vol=true&include_market_cap=true`);
+    const d = await r.json();
+    prices = d;
+    updateTicker(d);
+    updateDashboard(d);
+  } catch(e){}
+}
+
+function fmt(n){
+  if(n>=1e12) return '$'+(n/1e12).toFixed(2)+'T';
+  if(n>=1e9) return '$'+(n/1e9).toFixed(2)+'B';
+  if(n>=1e6) return '$'+(n/1e6).toFixed(2)+'M';
+  return '$'+n.toFixed(2);
+}
+
+function updateTicker(d){
+  const map = {btc:'bitcoin',eth:'ethereum',sol:'solana',bnb:'binancecoin'};
+  for(const [k,coin] of Object.entries(map)){
+    if(!d[coin]) continue;
+    const p = d[coin].usd;
+    const c = d[coin].usd_24h_change;
+    document.getElementById('t-'+k).textContent = '$'+p.toLocaleString('en',{maximumFractionDigits:2});
+    const el = document.getElementById('t-'+k+'-c');
+    el.textContent = (c>=0?'+':'')+c.toFixed(2)+'%';
+    el.className = 'ticker-change '+(c>=0?'up':'down');
+  }
+}
+
+function updateDashboard(d){
+  const btc = d['bitcoin'];
+  if(btc){
+    document.getElementById('btc-price-main').textContent = '$'+btc.usd.toLocaleString('en',{maximumFractionDigits:2});
+    document.getElementById('mktcap').textContent = fmt(btc.usd_market_cap*21);
+    document.getElementById('vol24').textContent = fmt(btc.usd_24h_vol*6);
+    document.getElementById('btcdom').textContent = '71.1%';
+    document.getElementById('fng').textContent = '74 · Greed';
+    document.getElementById('fng-label').textContent = 'Bullish sentiment';
+    chartData.push(btc.usd);
+    if(chartData.length>30) chartData.shift();
+    drawChart();
+  }
+  updateMarkets(d);
+}
+
+function drawChart(){
+  const canvas = document.getElementById('mainChart');
+  if(!canvas) return;
+  const ctx = canvas.getContext('2d');
+  canvas.width = canvas.offsetWidth*2;
+  canvas.height = 400;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  if(chartData.length<2) return;
+  const min = Math.min(...chartData)*0.999;
+  const max = Math.max(...chartData)*1.001;
+  const w = canvas.width, h = canvas.height;
+  const pts = chartData.map((v,i)=>({
+    x: (i/(chartData.length-1))*w,
+    y: h - ((v-min)/(max-min))*h*0.8 - h*0.1
+  }));
+  // gradient fill
+  const grad = ctx.createLinearGradient(0,0,0,h);
+  grad.addColorStop(0,'rgba(34,197,94,0.3)');
+  grad.addColorStop(1,'rgba(34,197,94,0)');
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, h);
+  pts.forEach(p=>ctx.lineTo(p.x,p.y));
+  ctx.lineTo(pts[pts.length-1].x, h);
+  ctx.fillStyle = grad;
+  ctx.fill();
+  // line
+  ctx.beginPath();
+  pts.forEach((p,i)=>i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y));
+  ctx.strokeStyle = '#22c55e';
+  ctx.lineWidth = 3;
+  ctx.stroke();
+}
+
+function updateMarkets(d){
+  const tbody = document.getElementById('marketsBody');
+  if(!tbody) return;
+  const rows = COINS.map((coin,i)=>{
+    const cd = d[coin];
+    if(!cd) return '';
+    const ch = cd.usd_24h_change||0;
+    return `<tr>
+      <td><div class="asset-name">${['Bitcoin','Ethereum','Solana','BNB','Ripple','Avalanche'][i]}</div><div class="asset-ticker">${SYMBOLS[i]}</div></td>
+      <td>$${cd.usd.toLocaleString('en',{maximumFractionDigits:2})}</td>
+      <td class="${ch>=0?'price-up':'price-down'}">${ch>=0?'▲':'▼'} ${Math.abs(ch).toFixed(2)}%</td>
+      <td>${fmt(cd.usd_24h_vol||0)}</td>
+    </tr>`;
+  });
+  tbody.innerHTML = rows.join('');
+}
+
+// ---- CHAT ----
+let chatHistory = [];
+const GROQ_KEY = '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'; // replaced via env
+
+async function sendMessage(){
+  const input = document.getElementById('chatInput');
+  const msg = input.value.trim();
+  if(!msg) return;
+  input.value = '';
+  document.getElementById('chatEmpty').style.display='none';
+  addMessage('user', msg);
+  chatHistory.push({role:'user',content:msg});
+  const typingId = addTyping();
+  try {
+    const r = await fetch('https://api.groq.com/openai/v1/chat/completions',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+GROQ_KEY},
+      body:JSON.stringify({
+        model:'llama-3.3-70b-versatile',
+        messages:[
+          {role:'system',content:'You are NEURALIS, a professional Web3 and crypto market analyst. Provide concise, expert analysis on crypto markets, DeFi, on-chain data, and macroeconomics. Always respond in the language the user writes in.'},
+          ...chatHistory
+        ],
+        max_tokens:1000
+      })
+    });
+    const data = await r.json();
+    removeTyping(typingId);
+    const reply = data.choices?.[0]?.message?.content||'Unable to connect. Please check your API key.';
+    addMessage('ai', reply);
+    chatHistory.push({role:'assistant',content:reply});
+  } catch(e){
+    removeTyping(typingId);
+    addMessage('ai','Connection error. Please try again.');
+  }
+}
+
+function addMessage(role, text){
+  const msgs = document.getElementById('chatMessages');
+  const div = document.createElement('div');
+  div.className = 'message '+role;
+  div.innerHTML = `<div class="msg-avatar ${role}">${role==='ai'?'🤖':'👤'}</div><div class="msg-bubble">${text.replace(/\n/g,'<br>')}</div>`;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function addTyping(){
+  const msgs = document.getElementById('chatMessages');
+  const id = 'typing-'+Date.now();
+  const div = document.createElement('div');
+  div.className = 'message ai';
+  div.id = id;
+  div.innerHTML = `<div class="msg-avatar ai">🤖</div><div class="msg-bubble"><div class="typing"><span></span><span></span><span></span></div></div>`;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+  return id;
+}
+
+function removeTyping(id){
+  const el = document.getElementById(id);
+  if(el) el.remove();
+}
+
+function sendSuggestion(btn){
+  document.getElementById('chatInput').value = btn.textContent;
+  sendMessage();
+}
+
+function handleKey(e){
+  if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();}
+}
+
+// ---- AUTH ----
+function openAuth(){ document.getElementById('authModal').classList.add('open'); }
+function closeAuth(){ document.getElementById('authModal').classList.remove('open'); }
+function toggleAuthMode(){
+  authMode = authMode==='signin'?'signup':'signin';
+  document.getElementById('authTitle').textContent = authMode==='signin'?'Sign In':'Sign Up';
+  document.getElementById('authSub').textContent = authMode==='signin'?'Welcome back to NEURALIS':'Create your NEURALIS account';
+  document.querySelector('.modal-switch').innerHTML = authMode==='signin'?'Don\'t have an account? <a onclick="toggleAuthMode()">Sign Up</a>':'Already have an account? <a onclick="toggleAuthMode()">Sign In</a>';
+}
+
+function handleAuth(){
+  const email = document.getElementById('authEmail').value;
+  const pwd = document.getElementById('authPassword').value;
+  if(!email||!pwd){ alert('Please fill all fields'); return; }
+  if(authMode==='signup'){
+    if(users.find(u=>u.email===email)){ alert('User already exists'); return; }
+    users.push({email,plan:'free',joined:new Date().toISOString()});
+    localStorage.setItem('neuralis_users',JSON.stringify(users));
+    updateAdminPanel();
+    alert('Account created! Welcome to NEURALIS.');
+  } else {
+    const u = users.find(u=>u.email===email);
+    if(!u){ alert('User not found'); return; }
+    alert('Welcome back, '+email+'!');
+  }
+  closeAuth();
+}
+
+function updateAdminPanel(){
+  document.getElementById('totalUsers').textContent = users.length;
+  document.getElementById('activeUsers').textContent = users.length;
+  document.getElementById('proUsers').textContent = users.filter(u=>u.plan!=='free').length;
+  document.getElementById('revenue').textContent = '$'+users.filter(u=>u.plan!=='free').length*10;
+  if(users.length===0){
+    document.getElementById('usersContent').innerHTML = '<div class="empty-state">No users registered yet.<br>Users will appear here after sign up.</div>';
+    return;
+  }
+  const rows = users.map(u=>`<tr>
+    <td>${u.email}</td>
+    <td><span class="plan-badge ${u.plan}">${u.plan.toUpperCase()}</span></td>
+    <td>${new Date(u.joined).toLocaleDateString()}</td>
+  </tr>`).join('');
+  document.getElementById('usersContent').innerHTML = `<table class="users-table"><thead><tr><th>Email</th><th>Plan</th><th>Joined</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+// ---- NAV ----
+function showPage(id, btn){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  document.querySelectorAll('.nav-link').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  if(id==='admin') updateAdminPanel();
+}
+
+function openMobileMenu(){ document.getElementById('mobileMenu').classList.add('open'); }
+function closeMobileMenu(){ document.getElementById('mobileMenu').classList.remove('open'); }
+
+// ---- INIT ----
+fetchPrices();
+setInterval(fetchPrices, 10000);
+updateAdminPanel();
+
+window.addEventListener('resize', drawChart);
+</script>
+</body>
+</html>
