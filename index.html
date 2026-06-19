@@ -252,7 +252,8 @@
     <button class="nav-link" onclick="showPage('admin',this)">Admin</button>
   </div>
   <div style="display:flex;gap:8px;align-items:center;">
-    <button class="connect-btn" onclick="openAuth()">🔗 Connect Wallet</button>
+    <button class="connect-btn" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);" onclick="openAuth()">Войти</button>
+    <button class="connect-btn" onclick="alert('Подключение кошелька скоро!')">🔗 Connect Wallet</button>
     <button class="hamburger" onclick="openMobileMenu()">☰</button>
   </div>
 </nav>
@@ -622,7 +623,7 @@ function updateMarkets(d){
 
 // ---- CHAT ----
 let chatHistory = [];
-const GROQ_KEY = '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'; // replaced via env
+const GROQ_KEY = 'your_groq_key_here'; // replaced via env
 
 async function sendMessage(){
   const input = document.getElementById('chatInput');
@@ -739,6 +740,10 @@ function updateAdminPanel(){
 
 // ---- NAV ----
 function showPage(id, btn){
+  if(id==='admin'){
+    const pwd = prompt('Введите пароль администратора:');
+    if(pwd !== '250197+-+'){ alert('Неверный пароль!'); return; }
+  }
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.getElementById('page-'+id).classList.add('active');
   document.querySelectorAll('.nav-link').forEach(b=>b.classList.remove('active'));
